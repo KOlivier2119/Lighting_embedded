@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Light Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.3/mqtt.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --primary-color: #4CAF50;
+            --secondary-color: #FF9800;
+            --text-color: #FAFAFA;
+            --button-hover: #66BB6A;
+            --shadow-color: rgba(0, 0, 0, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            box-shadow: 0 10px 20px var(--shadow-color);
+            padding: 50px;
+            border-radius: 25px;
+            background: #1F1F1F;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 40px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status {
+            margin: 30px 0;
+            font-size: 1.8rem;
+        }
+
+        .light {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            margin: 30px auto;
+            box-shadow: 0 0 50px 15px transparent;
+            background: #444;
+            transition: box-shadow 0.5s ease, background 0.5s ease, opacity 0.5s ease;
+        }
+
+        .light.on {
+            box-shadow: 0 0 80px 25px var(--primary-color);
+            background: var(--primary-color);
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            font-size: 1.3rem;
+            border: none;
+            border-radius: 35px;
+            cursor: pointer;
+            transition: transform 0.3s ease, background 0.3s ease;
+        }
+
+        .btn.on {
+            background: var(--secondary-color);
+            color: var(--text-color);
+        }
+
+        .btn.off {
+            background: transparent;
+            color: var(--secondary-color);
+            border: 2px solid var(--secondary-color);
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+            background: var(--button-hover);
+        }
+
+        .slider-container {
+            margin-top: 40px;
+        }
+
+        .slider {
+            width: 80%;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .btn {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Smart Light Control</h1>
+        <div id="light" class="light"></div>
+        <p id="status" class="status">Light Status: OFF</p>
+
+        <div class="buttons">
+            <button id="turnOn" class="btn on">Activate Light</button>
+            <button id="turnOff" class="btn off">Deactivate Light</button>
+        </div>
+
+        <div class="slider-container">
+            <label for="brightness">Brightness Control:</label>
+            <input type="range" id="brightness" class="slider" min="10" max="100" value="100">
+        </div>
+    </div>
+
+    <script>
+        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+        const topic = '/student_group/light_control';
+
+        const light = document.getElementById('light');
+        const status = document.getElementById('status');
+        const brightnessSlider = document.getElementById('brightness');
+
+        client.on('connect', () => {
+            console.log('✅ Connected to MQTT broker');
+            client.subscribe(topic);
+        });
+
+        client.on('message', (receivedTopic, message) => {
+            if (receivedTopic === topic) {
+                const payload = message.toString();
+                console.log(`📥 Received: ${payload}`);
+                if (payload === 'ON') updateUI(true);
+                else if (payload === 'OFF') updateUI(false);
+            }
+        });
+
+        const updateUI = (isOn) => {
+            if (isOn) {
+                light.classList.add('on');
+                status.textContent = 'Light Status: ON';
+                updateBrightness(brightnessSlider.value);
+            } else {
+                light.classList.remove('on');
+                status.textContent = 'Light Status: OFF';
+                light.style.opacity = 1;
+                light.style.boxShadow = '0 0 50px 15px transparent';
+            }
+        };
+
+        const updateBrightness = (value) => {
+            if (light.classList.contains('on')) {
+                const intensity = value / 100;
+                light.style.opacity = intensity;
+                light.style.boxShadow = `0 0 ${80 * intensity}px ${25 * intensity}px var(--primary-color)`;
+            }
+        };
+
+        document.getElementById('turnOn').addEventListener('click', () => {
+            client.publish(topic, 'ON');
+            console.log('📢 Sent: ON');
+        });
+
+        document.getElementById('turnOff').addEventListener('click', () => {
+            client.publish(topic, 'OFF');
+            console.log('📢 Sent: OFF');
+        });
+
+        brightnessSlider.addEventListener('input', (e) => {
+            updateBrightness(e.target.value);
+        });
+    </script>
+</body>
+
+</html>
